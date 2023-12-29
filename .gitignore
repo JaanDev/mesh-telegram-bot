@@ -1,7 +1,6 @@
 env.json
 .vscode
-db.json
 log*.txt
 __pycache__
 tmp
-*.json
+env

@@ -6,7 +6,6 @@ import aiohttp
 import asyncio
 import json
 import os
-import time
 
 db = {}
 

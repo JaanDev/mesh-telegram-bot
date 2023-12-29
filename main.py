@@ -1,7 +1,5 @@
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, Message, Bot
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
-import telegram
-import telegram.ext
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, Message, Bot, BotCommandScopeAllPrivateChats
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters, Application
 import logging
 import json
 from datetime import datetime
@@ -385,8 +383,8 @@ async def reply_callback(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             del token_messages[upd.effective_chat.id]
 
 
-async def post_init(application: telegram.ext.Application) -> None:
-    bot: telegram.Bot = application.bot
+async def post_init(application: Application) -> None:
+    bot: Bot = application.bot
     await bot.set_my_commands(commands=[
         BotCommand('start', 'Start working with the bot'),
         BotCommand('profile', 'Get your Mesh profile info'),
@@ -397,7 +395,7 @@ async def post_init(application: telegram.ext.Application) -> None:
         BotCommand('refreshtoken', 'Refresh/change your Mesh token'),
         BotCommand('testanswers', 'Get answers for a Mesh test'),
         BotCommand('notifications', 'Get latest notifications')
-    ], scope=telegram.BotCommandScopeAllPrivateChats(), language_code='')
+    ], scope=BotCommandScopeAllPrivateChats(), language_code='')
     await bot.set_my_commands(commands=[
         BotCommand('start', 'Начать работать с ботом'),
         BotCommand('profile', 'Получить информацию о профиле МЭШ'),
@@ -408,7 +406,7 @@ async def post_init(application: telegram.ext.Application) -> None:
         BotCommand('refreshtoken', 'Обновить/изменить свой токен МЭШ'),
         BotCommand('testanswers', 'Получить ответы на тест МЭШ'),
         BotCommand('notifications', 'Получить последние уведомления')
-    ], scope=telegram.BotCommandScopeAllPrivateChats(), language_code='ru')
+    ], scope=BotCommandScopeAllPrivateChats(), language_code='ru')
 
 if __name__ == '__main__':
     meshapi.load_db()
