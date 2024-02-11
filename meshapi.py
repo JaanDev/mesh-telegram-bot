@@ -16,13 +16,16 @@ def load_db() -> None:
     with open('db.json', 'r', encoding='utf-8') as f:
         db = json.load(f)
 
-    if os.path.exists('log.txt'):
-        (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat('log.txt')
-        creation_date = datetime.fromtimestamp(mtime).strftime('%d_%m_%Y__%H_%M_%S')
-        new_name = f"log_{creation_date}.txt"
-        os.rename('log.txt', new_name)
+    if not os.path.exists("logs"):
+        os.mkdir("logs")
 
-    open('log.txt', 'w').close()
+    if os.path.exists('logs/log.txt'):
+        (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat('logs/log.txt')
+        creation_date = datetime.fromtimestamp(mtime).strftime('%d_%m_%Y__%H_%M_%S')
+        new_name = f"logs/log_{creation_date}.txt"
+        os.rename('logs/log.txt', new_name)
+
+    open('logs/log.txt', 'w').close()
 
 
 def save_db() -> None:
@@ -40,14 +43,21 @@ async def get(url, session: aiohttp.ClientSession, headers, cookies):
     try:
         async with session.get(url=url, headers=headers, cookies=cookies) as response:
             resp = await response.text()
-            return resp
+            return resp, response.status
     except Exception as e:
         print("Unable to get url {} due to {}.".format(url, e.__class__))
 
 
 async def async_request(urls, headers={}, cookies={}):
     async with aiohttp.ClientSession() as session:
-        return await asyncio.gather(*[get(url, session, headers, cookies) for url in urls])
+        coros = []
+        res_code = 200
+        for url in urls:
+            coro, code = get(url, session, headers, cookies)
+            coros.append(coro)
+            if code != 200:
+                res_code = code
+        return await asyncio.gather(*[get(url, session, headers, cookies) for url in urls]), res_code
 
 
 async def profile(chat_id):
@@ -64,9 +74,11 @@ async def profile(chat_id):
             'profile-id': student_id,
             'x-mes-subsystem': 'familymp'
         })
+        if data.status_code != 200:
+            return None
         return data.text
     except Exception as e:
-        with open('log.txt', 'a') as f:
+        with open('logs/log.txt', 'a') as f:
             f.write(f'{datetime.now().strftime("[%d.%m.%Y %H:%M:%S]")} Error: "profile" for chat_id {chat_id} ({str(e)})')
         return None
 
@@ -90,12 +102,17 @@ async def schedule(chat_id, date1: datetime, date2: datetime):
             if date > date2:
                 break
 
-        return await async_request(urls, {
+        res, code = await async_request(urls, {
             "x-mes-subsystem": "familymp",
             "auth-token": token
         })
+
+        if code != 200:
+            return None
+
+        print(res)
     except Exception as e:
-        with open('log.txt', 'a') as f:
+        with open('logs/log.txt', 'a') as f:
             f.write(f'{datetime.now().strftime("[%d.%m.%Y %H:%M:%S]")} Error: "schedule" for chat_id {chat_id} ({str(e)})')
         return None
 
@@ -116,6 +133,9 @@ async def homework(chat_id, date1: datetime, date2: datetime):
             "auth_token": token,
             "student_id": student_id
         })
+
+        if data.status_code != 200:
+            return None
 
         res = {}
 
@@ -157,11 +177,14 @@ async def homework(chat_id, date1: datetime, date2: datetime):
                 res[date] = []
             res[date].append(obj)
 
-        test_urls2 = await async_request(test_urls, headers={
+        test_urls2, code = await async_request(test_urls, headers={
             'Auth-Token': token,
             'Profile-Id': student_id,
             'X-Mes-Subsystem': 'familyweb'
         })
+
+        if code != 200:
+            return None
 
         for date, entries in res.items():
             for entry in entries:
@@ -175,7 +198,7 @@ async def homework(chat_id, date1: datetime, date2: datetime):
 
         return res
     except Exception as e:
-        with open('log.txt', 'a') as f:
+        with open('logs/log.txt', 'a') as f:
             f.write(f'{datetime.now().strftime("[%d.%m.%Y %H:%M:%S]")} Error: "homework" for chat_id {chat_id} ({str(e)})')
         return None
 
@@ -196,6 +219,9 @@ async def marksdate(chat_id, date1: datetime, date2: datetime):
             'auth_token': token,
             'student_id': student_id
         })
+
+        if data.status_code != 200:
+            return None
 
         with open('markssss.json', 'w', encoding='utf-8') as f:
             json.dump(data.json(), f, indent=4, ensure_ascii=False)
@@ -229,6 +255,9 @@ async def marksdate(chat_id, date1: datetime, date2: datetime):
             'student_id': student_id
         })
 
+        if data2.status_code != 200:
+            return None
+
         subjects = {}
         for entry in data2.json():
             subjects[str(entry['id'])] = entry['name']
@@ -239,15 +268,9 @@ async def marksdate(chat_id, date1: datetime, date2: datetime):
 
         res = sorted(res.items(), key=lambda x: datetime.strptime(x[0], '%d.%m.%Y'))
 
-        # with open('amogussubj.json', 'w', encoding='utf-8') as f:
-        #     json.dump(data2.json(), f, indent=4, ensure_ascii=False)
-
-        # with open('amogusmarks.json', 'w', encoding='utf-8') as f:
-        #     json.dump(res, f, indent=4, ensure_ascii=False)
-
         return res
     except Exception as e:
-        with open('log.txt', 'a') as f:
+        with open('logs/log.txt', 'a') as f:
             f.write(f'{datetime.now().strftime("[%d.%m.%Y %H:%M:%S]")} Error: "marksdate" for chat_id {chat_id} ({str(e)})')
         return None
 
@@ -271,6 +294,9 @@ async def marks(chat_id):
             'auth_token': token,
             'student_id': student_id
         })
+
+        if data.status_code != 200:
+            return None
 
         res = {}
 
@@ -300,7 +326,7 @@ async def marks(chat_id):
 
         return res
     except Exception as e:
-        with open('log.txt', 'a') as f:
+        with open('logs/log.txt', 'a') as f:
             f.write(f'{datetime.now().strftime("[%d.%m.%Y %H:%M:%S]")} Error: "marks" for chat_id {chat_id} ({str(e)})')
         return None
 
@@ -320,9 +346,12 @@ async def notifications(chat_id):
             "x-mes-subsystem": "familymp"
         })
 
+        if data.status_code != 200:
+            return None
+
         return data.json()
     except Exception as e:
-        with open('log.txt', 'a') as f:
+        with open('logs/log.txt', 'a') as f:
             f.write(f'{datetime.now().strftime("[%d.%m.%Y %H:%M:%S]")} Error: "notifications" for chat_id {chat_id} ({str(e)})')
         return None
 
