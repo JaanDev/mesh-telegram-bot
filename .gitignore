@@ -1,5 +1,4 @@
-.vscode
-log*.txt
-__pycache__
-tmp
-env
+.vscode/
+logs/
+env/
+__pycache__/

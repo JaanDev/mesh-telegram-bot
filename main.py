@@ -10,7 +10,7 @@ import tg_cal
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.WARNING
 )
 
 print('Starting bot')
@@ -230,7 +230,7 @@ async def marks(msg: Message, bot: Bot) -> None:
     txt = ''
 
     for subj, entry in data.items():
-        txt += f'📖 <b>{subj}</b>: {entry["avg"]}\n'
+        txt += f'📖 {subj}: {entry["avg"]}\n'
 
         for period, entry2 in entry['periods'].items():
             txt += f'<b>{period}</b>: {entry2["avg"]}'

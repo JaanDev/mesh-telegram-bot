@@ -50,14 +50,12 @@ async def get(url, session: aiohttp.ClientSession, headers, cookies):
 
 async def async_request(urls, headers={}, cookies={}):
     async with aiohttp.ClientSession() as session:
-        coros = []
+        result = await asyncio.gather(*[get(url, session, headers, cookies) for url in urls])
         res_code = 200
-        for url in urls:
-            coro, code = get(url, session, headers, cookies)
-            coros.append(coro)
+        for _, code in result:
             if code != 200:
                 res_code = code
-        return await asyncio.gather(*[get(url, session, headers, cookies) for url in urls]), res_code
+        return [x[0] for x in result], res_code
 
 
 async def profile(chat_id):
@@ -109,8 +107,8 @@ async def schedule(chat_id, date1: datetime, date2: datetime):
 
         if code != 200:
             return None
-
-        print(res)
+        
+        return res
     except Exception as e:
         with open('logs/log.txt', 'a') as f:
             f.write(f'{datetime.now().strftime("[%d.%m.%Y %H:%M:%S]")} Error: "schedule" for chat_id {chat_id} ({str(e)})')
@@ -183,7 +181,7 @@ async def homework(chat_id, date1: datetime, date2: datetime):
             'X-Mes-Subsystem': 'familyweb'
         })
 
-        if code != 200:
+        if code != 200 and code != 302:
             return None
 
         for date, entries in res.items():
@@ -192,9 +190,6 @@ async def homework(chat_id, date1: datetime, date2: datetime):
                     test['url'] = test_urls2[test['url']]
 
         res = sorted(res.items(), key=lambda x: (datetime.strptime(x[0], '%d.%m.%Y')))
-
-        with open('amogus.json', 'w', encoding='utf-8') as f:
-            json.dump(res, f, indent=4, ensure_ascii=False)
 
         return res
     except Exception as e:
@@ -320,7 +315,7 @@ async def marks(chat_id):
                     })
 
                 obj2['avg'] = period['avg_five']
-                obj2['final_mark'] = period['final_mark']
+                obj2['final_mark'] = period['final_mark'] if 'final_mark' in period else None
 
         # print(res)
 
