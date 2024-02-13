@@ -408,7 +408,7 @@ async def post_init(application: Application) -> None:
 if __name__ == '__main__':
     meshapi.load_db()
 
-    app = ApplicationBuilder().token('6555791717:AAHjStD4j6yiEzaKAUfF2EJKMakjlMiLQQ4').post_init(post_init).build()
+    app = ApplicationBuilder().token('6555791717:AAFJ8qLx_0GKywIAoF_tWsnDc25E1sTe8QY').post_init(post_init).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('profile', profile_cmd))
     app.add_handler(CommandHandler('schedule', schedule_cmd))
