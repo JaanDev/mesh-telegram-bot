@@ -218,9 +218,6 @@ async def marksdate(chat_id, date1: datetime, date2: datetime):
         if data.status_code != 200:
             return None
 
-        with open('markssss.json', 'w', encoding='utf-8') as f:
-            json.dump(data.json(), f, indent=4, ensure_ascii=False)
-
         res = {}
 
         for entry in data.json():
