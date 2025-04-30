@@ -5,17 +5,18 @@ from dateutil.relativedelta import relativedelta
 
 
 class Calendar():
-    def __init__(self, msg, callback, bot: Bot) -> None:
+    def __init__(self, msg, callback, user_id, bot: Bot) -> None:
         self.callback = callback
         self.msg_text = 'Выберите начальную дату'
         self.msg: Message = msg
         self.date = datetime.today()
         self.date1 = None
         self.bot: Bot = bot
+        self.user_id = user_id
 
     @classmethod
-    async def create(cls, msg, callback, bot):
-        self = Calendar(msg, callback, bot)
+    async def create(cls, msg, callback, user_id, bot):
+        self = Calendar(msg, callback, user_id, bot)
         await self.setup_buttons()
         return self
 
@@ -63,4 +64,4 @@ class Calendar():
             self.msg_text = 'Выберите конечную дату'
             await self.setup_buttons()
         else:
-            await self.callback(self.msg, self.bot, self.date1, date)
+            await self.callback(self.msg, self.bot, self.date1, date, self.user_id)

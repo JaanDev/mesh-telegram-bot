@@ -1,12 +1,15 @@
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, Message, Bot, BotCommandScopeAllPrivateChats
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, Message, Bot, BotCommandScopeAllPrivateChats, InputMediaPhoto
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters, Application
 import logging
 import json
 from datetime import datetime
 from types import SimpleNamespace
+from dotenv import load_dotenv
+import os
 
 import meshapi
 import tg_cal
+import database
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -46,11 +49,11 @@ async def start(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def profile_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     msg = await ctx.bot.send_message(upd.effective_chat.id, 'Загрузка...')
-    await profile(msg, ctx.bot)
+    await profile(msg, upd.effective_user.id, ctx.bot)
 
 
-async def profile(msg: Message, bot: Bot) -> None:
-    data = await meshapi.profile(str(msg.chat_id))
+async def profile(msg: Message, user_id, bot: Bot) -> None:
+    data = await meshapi.profile(user_id)
     if not data:
         await bot.edit_message_text('Не удалось получить данные. Попробуйте обновить токен или попробуйте ещё раз позже', msg.chat_id, msg.id)
         return
@@ -71,21 +74,22 @@ school_id: {data.school.id}
 
 <b>Внимание! Мы не храним вашу информацию, вся эта информация получена из МЭШ!</b>'''
 
-    await bot.edit_message_text(txt, msg.chat_id, msg.id, parse_mode='HTML')
+    # await bot.edit_message_text(txt, msg.chat_id, msg.id, parse_mode='HTML')
+    await bot.edit_message_media(chat_id=msg.chat_id, message_id=msg.id, media=InputMediaPhoto(media=open('assets/profile.png', 'rb'), caption=txt, parse_mode='HTML'))
 
 
 async def schedule_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     global calendars
     msg = await ctx.bot.send_message(upd.effective_chat.id, 'Выберите начальную дату')
-    if not upd.effective_chat.id in calendars:
-        calendars[upd.effective_chat.id] = {}
-    calendars[upd.effective_chat.id][msg.id] = await tg_cal.Calendar.create(msg, schedule, ctx.bot)
+    if upd.effective_chat.id not in calendars:
+        calendars[upd.effective_user.id] = {}
+    calendars[upd.effective_user.id][msg.id] = await tg_cal.Calendar.create(msg, schedule, upd.effective_user.id, ctx.bot)
 
 
-async def schedule(msg: Message, bot: Bot, date1: datetime, date2: datetime) -> None:
+async def schedule(msg: Message, bot: Bot, date1: datetime, date2: datetime, user_id) -> None:
     await bot.edit_message_text('Загрузка...', msg.chat_id, msg.id)
 
-    data_all = await meshapi.schedule(str(msg.chat_id), date1, date2)
+    data_all = await meshapi.schedule(user_id, date1, date2)
     if not data_all:
         await bot.edit_message_text('Не удалось получить данные. Попробуйте обновить токен или попробуйте ещё раз позже', msg.chat_id, msg.id)
         return
@@ -115,7 +119,8 @@ async def schedule(msg: Message, bot: Bot, date1: datetime, date2: datetime) -> 
             txt += '\n\n'
 
         if i == 0:
-            await bot.edit_message_text(txt, msg.chat_id, msg.id, parse_mode='HTML', disable_web_page_preview=True)
+            # await bot.edit_message_text(txt, msg.chat_id, msg.id, parse_mode='HTML', disable_web_page_preview=True)
+            await bot.edit_message_media(chat_id=msg.chat_id, message_id=msg.id, media=InputMediaPhoto(media=open('assets/schedule.png', 'rb'), caption=txt, parse_mode='HTML'))
         else:
             await bot.send_message(msg.chat_id, txt, parse_mode='HTML', disable_web_page_preview=True)
         i += 1
@@ -124,15 +129,15 @@ async def schedule(msg: Message, bot: Bot, date1: datetime, date2: datetime) -> 
 async def homework_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     global calendars
     msg = await ctx.bot.send_message(upd.effective_chat.id, 'Выберите начальную дату')
-    if not upd.effective_chat.id in calendars:
-        calendars[upd.effective_chat.id] = {}
-    calendars[upd.effective_chat.id][msg.id] = await tg_cal.Calendar.create(msg, homework, ctx.bot)
+    if upd.effective_chat.id not in calendars:
+        calendars[upd.effective_user.id] = {}
+    calendars[upd.effective_user.id][msg.id] = await tg_cal.Calendar.create(msg, homework, upd.effective_user.id, ctx.bot)
 
 
-async def homework(msg: Message, bot: Bot, date1: datetime, date2: datetime) -> None:
+async def homework(msg: Message, bot: Bot, date1: datetime, date2: datetime, user_id) -> None:
     await bot.edit_message_text('Загрузка...', msg.chat_id, msg.id)
 
-    data_all = await meshapi.homework(str(msg.chat_id), date1, date2)
+    data_all = await meshapi.homework(user_id, date1, date2)
     if not data_all:
         await bot.edit_message_text('Не удалось получить данные. Попробуйте обновить токен или попробуйте ещё раз позже', msg.chat_id, msg.id)
         return
@@ -159,8 +164,12 @@ async def homework(msg: Message, bot: Bot, date1: datetime, date2: datetime) -> 
 
             examine = entry['tests']['examine']
             if examine > 0:
-                def f1(a): return (a % 100)//10 != 1 and a % 10 == 1
-                def f2(a): return (a % 100)//10 != 1 and a % 10 in [2, 3, 4]
+                def f1(a):
+                    return (a % 100) // 10 != 1 and a % 10 == 1
+                
+                def f2(a):
+                    return (a % 100) // 10 != 1 and a % 10 in [2, 3, 4]
+
                 word = "тест" if f1(examine) else "теста" if f2(examine) else "тестов"
                 txt += f'<i>Изучить: {examine} {word}...</i>\n'
 
@@ -168,6 +177,7 @@ async def homework(msg: Message, bot: Bot, date1: datetime, date2: datetime) -> 
 
         if i == 0:
             await bot.edit_message_text(txt, msg.chat_id, msg.id, parse_mode='HTML', disable_web_page_preview=True)
+            # await bot.edit_message_media(chat_id=msg.chat_id, message_id=msg.id, media=InputMediaPhoto(media=open('assets/homework.png', 'rb'), caption=txt, parse_mode='HTML'))
         else:
             await bot.send_message(msg.chat_id, txt, parse_mode='HTML', disable_web_page_preview=True)
 
@@ -177,15 +187,15 @@ async def homework(msg: Message, bot: Bot, date1: datetime, date2: datetime) -> 
 async def marksdate_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     global calendars
     msg = await ctx.bot.send_message(upd.effective_chat.id, 'Выберите начальную дату')
-    if not upd.effective_chat.id in calendars:
-        calendars[upd.effective_chat.id] = {}
-    calendars[upd.effective_chat.id][msg.id] = await tg_cal.Calendar.create(msg, marksdate, ctx.bot)
+    if upd.effective_chat.id not in calendars:
+        calendars[upd.effective_user.id] = {}
+    calendars[upd.effective_user.id][msg.id] = await tg_cal.Calendar.create(msg, marksdate, upd.effective_user.id, ctx.bot)
 
 
-async def marksdate(msg: Message, bot: Bot, date1: datetime, date2: datetime) -> None:
+async def marksdate(msg: Message, bot: Bot, date1: datetime, date2: datetime, user_id) -> None:
     await bot.edit_message_text('Загрузка...', msg.chat_id, msg.id)
 
-    data = await meshapi.marksdate(str(msg.chat_id), date1, date2)
+    data = await meshapi.marksdate(user_id, date1, date2)
     if not data:
         await bot.edit_message_text('Не удалось получить данные. Попробуйте обновить токен или попробуйте ещё раз позже', msg.chat_id, msg.id)
         return
@@ -209,7 +219,8 @@ async def marksdate(msg: Message, bot: Bot, date1: datetime, date2: datetime) ->
             txt += '\n\n'
 
         if i == 0:
-            await bot.edit_message_text(txt, msg.chat_id, msg.id, disable_web_page_preview=True, parse_mode='HTML')
+            # await bot.edit_message_text(txt, msg.chat_id, msg.id, disable_web_page_preview=True, parse_mode='HTML')
+            await bot.edit_message_media(chat_id=msg.chat_id, message_id=msg.id, media=InputMediaPhoto(media=open('assets/marksdate.png', 'rb'), caption=txt, parse_mode='HTML'))
         else:
             await bot.send_message(msg.chat_id, txt, disable_web_page_preview=True, parse_mode='HTML')
 
@@ -218,11 +229,11 @@ async def marksdate(msg: Message, bot: Bot, date1: datetime, date2: datetime) ->
 
 async def marks_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     msg = await ctx.bot.send_message(upd.effective_chat.id, 'Загрузка...')
-    await marks(msg, ctx.bot)
+    await marks(msg, ctx.bot, upd.effective_user.id)
 
 
-async def marks(msg: Message, bot: Bot) -> None:
-    data = await meshapi.marks(str(msg.chat_id))
+async def marks(msg: Message, bot: Bot, user_id) -> None:
+    data = await meshapi.marks(user_id)
     if not data:
         await bot.edit_message_text('Не удалось получить данные. Попробуйте обновить токен или попробуйте ещё раз позже', msg.chat_id, msg.id)
         return
@@ -247,15 +258,16 @@ async def marks(msg: Message, bot: Bot) -> None:
         txt += '\n'
 
     await bot.edit_message_text(txt, msg.chat_id, msg.id, parse_mode='HTML')
+    # await bot.edit_message_media(chat_id=msg.chat_id, message_id=msg.id, media=InputMediaPhoto(media=open('assets/allmarks.png', 'rb'), caption=txt, parse_mode='HTML'))
 
 
 async def notifications_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     msg = await ctx.bot.send_message(upd.effective_chat.id, 'Загрузка...')
-    await notifications(msg, ctx.bot)
+    await notifications(msg, ctx.bot, upd.effective_user.id)
 
 
-async def notifications(msg: Message, bot: Bot) -> None:
-    data = await meshapi.notifications(str(msg.chat_id))
+async def notifications(msg: Message, bot: Bot, user_id) -> None:
+    data = await meshapi.notifications(user_id)
     if not data:
         await bot.edit_message_text('Не удалось получить данные. Попробуйте обновить токен или попробуйте ещё раз позже', msg.chat_id, msg.id)
         return
@@ -272,6 +284,7 @@ async def notifications(msg: Message, bot: Bot) -> None:
         if date != last_date:
             if txt:
                 if i == 0:
+                    # await bot.edit_message_media(chat_id=msg.chat_id, message_id=msg.id, media=InputMediaPhoto(media=open('assets/notifications.png', 'rb'), caption=txt, parse_mode='HTML'))
                     await bot.edit_message_text(txt, msg.chat_id, msg.id, parse_mode='HTML', disable_web_page_preview=True)
                 else:
                     await bot.send_message(msg.chat_id, txt, parse_mode='HTML', disable_web_page_preview=True)
@@ -308,7 +321,7 @@ async def refreshtoken_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     msg = await bot.send_message(upd.effective_chat.id, txt, parse_mode='HTML')
 
-    token_messages[upd.effective_chat.id] = msg
+    token_messages[upd.effective_user.id] = (msg, upd.effective_chat.id)
 
 
 async def callback(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -316,37 +329,39 @@ async def callback(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     query = upd.callback_query
 
     try:
-        if not upd.effective_chat.id in calendars:
-            calendars[upd.effective_chat.id] = {}
-        cal = calendars[upd.effective_chat.id][upd.effective_message.id]
-    except:
+        if upd.effective_chat.id not in calendars:
+            calendars[upd.effective_user.id] = {}
+        cal = calendars[upd.effective_user.id][upd.effective_message.id]
+    except Exception as e:
         cal = None
 
     await query.answer()
 
+    print(upd.effective_user.id)
+
     match query.data:
         case 'homework':
-            calendars[upd.effective_chat.id][upd.effective_message.id] = await tg_cal.Calendar.create(upd.effective_message, homework, ctx.bot)
+            calendars[upd.effective_user.id][upd.effective_message.id] = await tg_cal.Calendar.create(upd.effective_message, homework, upd.effective_user.id, ctx.bot)
         case 'schedule':
-            calendars[upd.effective_chat.id][upd.effective_message.id] = await tg_cal.Calendar.create(upd.effective_message, schedule, ctx.bot)
+            calendars[upd.effective_user.id][upd.effective_message.id] = await tg_cal.Calendar.create(upd.effective_message, schedule, upd.effective_user.id, ctx.bot)
         case 'marksdate':
-            calendars[upd.effective_chat.id][upd.effective_message.id] = await tg_cal.Calendar.create(upd.effective_message, marksdate, ctx.bot)
+            calendars[upd.effective_user.id][upd.effective_message.id] = await tg_cal.Calendar.create(upd.effective_message, marksdate, upd.effective_user.id, ctx.bot)
         case 'marks':
             await ctx.bot.edit_message_text('Загрузка...', upd.effective_chat.id, upd.effective_message.id)
-            await marks(upd.effective_message, ctx.bot)
+            await marks(upd.effective_message, ctx.bot, upd.effective_user.id)
         case 'testanswers':
             await ctx.bot.send_message(upd.effective_chat.id, 'Получение ответов из теста МЭШ пока не поддерживается!')
         case 'notifications':
             await ctx.bot.edit_message_text('Загрузка...', upd.effective_chat.id, upd.effective_message.id)
-            await notifications(upd.effective_message, ctx.bot)
+            await notifications(upd.effective_message, ctx.bot, upd.effective_user.id)
         case 'profile':
             await ctx.bot.edit_message_text('Загрузка...', upd.effective_chat.id, upd.effective_message.id)
-            await profile(upd.effective_message, ctx.bot)
+            await profile(upd.effective_message, upd.effective_user.id, ctx.bot)
         case 'refreshtoken':
             txt = 'Пожалуйста, перейдите по <a href="https://school.mos.ru/?backUrl=https%3A%2F%2Fschool.mos.ru%2Fv2%2Ftoken%2Frefresh%3FroleId%3D1%26subsystem%3D4">этой ссылке</a>, войдите в аккаунт, скопируйте весь текст и ответьте на это сообщение скопированным текстом'
             await ctx.bot.edit_message_text(txt, upd.effective_chat.id, upd.effective_message.id, parse_mode='HTML')
 
-            token_messages[upd.effective_chat.id] = upd.effective_message
+            token_messages[upd.effective_user.id] = upd.effective_message
         case 'cal_left':
             if cal:
                 await cal.backward()
@@ -356,7 +371,7 @@ async def callback(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         case 'cal_close':
             if cal:
                 await cal.close()
-                calendars[upd.effective_chat.id][upd.effective_message.id] = None
+                calendars[upd.effective_user.id][upd.effective_message.id] = None
         case _:
             if query.data.startswith('date') and cal:
                 await cal.on_date(datetime.strptime(query.data, 'date %Y/%m/%d'))
@@ -365,19 +380,21 @@ async def callback(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 async def reply_callback(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     global token_messages
 
-    if upd.effective_chat.id in token_messages:
+    print('!', upd.effective_user.name)
+
+    if upd.effective_user.id in token_messages:
         new_token = upd.effective_message.text
 
         msg = await ctx.bot.send_message(upd.effective_chat.id, 'Пожалуйста, подождите...')
 
-        result = await meshapi.try_add_new_token(new_token, upd.effective_chat.id)
+        result = await meshapi.try_add_new_token(new_token, upd.effective_user.id)
         print(result)
 
         if not result:
             await ctx.bot.edit_message_text('Не получилось проверить токен, пожалуйста, попробуйте ещё раз (отвечайте на предыдущее сообщение)', msg.chat_id, msg.id)
         else:
             await ctx.bot.edit_message_text('Токен успешно изменён!', msg.chat_id, msg.id)
-            del token_messages[upd.effective_chat.id]
+            del token_messages[upd.effective_user.id]
 
 
 async def post_init(application: Application) -> None:
@@ -406,9 +423,12 @@ async def post_init(application: Application) -> None:
     ], scope=BotCommandScopeAllPrivateChats(), language_code='ru')
 
 if __name__ == '__main__':
-    meshapi.load_db()
+    load_dotenv()
 
-    app = ApplicationBuilder().token('6555791717:AAFJ8qLx_0GKywIAoF_tWsnDc25E1sTe8QY').post_init(post_init).build()
+    with database.engine.begin() as conn:
+        database.MyBase.metadata.create_all(bind=conn)
+
+    app = ApplicationBuilder().token(os.getenv('BOT_TOKEN')).post_init(post_init).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('profile', profile_cmd))
     app.add_handler(CommandHandler('schedule', schedule_cmd))
