@@ -3,5 +3,9 @@ logs/
 env/
 __pycache__/
 db.json
+<<<<<<< HEAD
 database.db
 .env
+=======
+env.json
+>>>>>>> 0cbeb38ad1d9fa6675e3ddee0d8dcd1fc0b57511
