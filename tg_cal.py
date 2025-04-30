@@ -64,8 +64,4 @@ class Calendar():
             self.msg_text = 'Выберите конечную дату'
             await self.setup_buttons()
         else:
-<<<<<<< HEAD
             await self.callback(self.msg, self.bot, self.date1, date, self.user_id)
-=======
-            await self.callback(self.msg, self.bot, self.date1, date)
->>>>>>> 0cbeb38ad1d9fa6675e3ddee0d8dcd1fc0b57511
