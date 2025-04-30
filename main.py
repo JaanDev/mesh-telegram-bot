@@ -6,6 +6,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from dotenv import load_dotenv
 import os
+from sqlalchemy import delete
 
 import meshapi
 import tg_cal
@@ -324,6 +325,12 @@ async def refreshtoken_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     token_messages[upd.effective_user.id] = (msg, upd.effective_chat.id)
 
 
+async def deleteall_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    with database.sessions.begin() as session:
+        session.execute(delete(database.Users))
+        await ctx.bot.send_message(upd.effective_chat.id, 'OK')
+
+
 async def callback(upd: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     global calendars, token_messages
     query = upd.callback_query
@@ -437,6 +444,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('marks', marks_cmd))
     app.add_handler(CommandHandler('notifications', notifications_cmd))
     app.add_handler(CommandHandler('refreshtoken', refreshtoken_cmd))
+    app.add_handler(CommandHandler('deleteall', deleteall_cmd))
     app.add_handler(CallbackQueryHandler(callback))
     app.add_handler(MessageHandler(filters.REPLY, reply_callback))
 
