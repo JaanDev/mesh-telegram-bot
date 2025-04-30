@@ -1,3 +1,4 @@
+import threading
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, Message, Bot, BotCommandScopeAllPrivateChats, InputMediaPhoto
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters, Application
 import logging
@@ -7,6 +8,9 @@ from types import SimpleNamespace
 from dotenv import load_dotenv
 import os
 from sqlalchemy import delete
+import fastapi
+import uvicorn
+import asyncio
 
 import meshapi
 import tg_cal
@@ -429,11 +433,24 @@ async def post_init(application: Application) -> None:
         BotCommand('notifications', 'Получить последние уведомления')
     ], scope=BotCommandScopeAllPrivateChats(), language_code='ru')
 
-if __name__ == '__main__':
+fapp = None
+
+
+def run_fastapi():
+    global fapp
+    uvicorn.run(fapp, host="0.0.0.0", port=4000)
+
+
+def main():
+    global fapp
     load_dotenv()
 
     with database.engine.begin() as conn:
         database.MyBase.metadata.create_all(bind=conn)
+    
+    fapp = fastapi.FastAPI()
+    # uvicorn.run(fapp, host='0.0.0.0', port=4000)
+    threading.Thread(target=run_fastapi, daemon=True).start()
 
     app = ApplicationBuilder().token(os.getenv('BOT_TOKEN')).post_init(post_init).build()
     app.add_handler(CommandHandler('start', start))
@@ -449,3 +466,7 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.REPLY, reply_callback))
 
     app.run_polling()
+
+
+if __name__ == '__main__':
+    main()
