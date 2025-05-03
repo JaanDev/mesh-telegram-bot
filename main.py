@@ -124,8 +124,8 @@ async def schedule(msg: Message, bot: Bot, date1: datetime, date2: datetime, use
             txt += '\n\n'
 
         if i == 0:
-            # await bot.edit_message_text(txt, msg.chat_id, msg.id, parse_mode='HTML', disable_web_page_preview=True)
-            await bot.edit_message_media(chat_id=msg.chat_id, message_id=msg.id, media=InputMediaPhoto(media=open('assets/schedule.png', 'rb'), caption=txt, parse_mode='HTML'))
+            await bot.edit_message_text(txt, msg.chat_id, msg.id, parse_mode='HTML', disable_web_page_preview=True)
+            # await bot.edit_message_media(chat_id=msg.chat_id, message_id=msg.id, media=InputMediaPhoto(media=open('assets/schedule.png', 'rb'), caption=txt, parse_mode='HTML'))
         else:
             await bot.send_message(msg.chat_id, txt, parse_mode='HTML', disable_web_page_preview=True)
         i += 1

@@ -8,14 +8,16 @@ import json
 import os
 from sqlalchemy import select
 from enum import Enum
+from aiohttp_socks import ProxyConnector
 
 import database
 
 # 109.95.220.45:8080
 # socks5://37.18.73.60:5566
 # 95.52.231.228:1080
+# socks5://proxyuser:123456@78.36.200.207:1080
 
-PROXY = {'http': "socks5://95.52.231.228:1080", 'https': "socks5://95.52.231.228:1080"}
+PROXY = {'http': "socks5://proxyuser:123456@78.36.200.207:8000", 'https': "socks5://proxyuser:123456@78.36.200.207:8000"}
 
 
 def get_user(tg_id) -> database.Users | None:
@@ -31,7 +33,7 @@ def date_to_msk(date) -> datetime:
 
 async def get(url, session: aiohttp.ClientSession, headers, cookies):
     try:
-        async with session.get(url=url, headers=headers, cookies=cookies, timeout=15, proxy=PROXY['http']) as response:
+        async with session.get(url=url, headers=headers, cookies=cookies, timeout=15) as response:
             resp = await response.text()
             return resp, response.status
     except Exception as e:
@@ -39,7 +41,8 @@ async def get(url, session: aiohttp.ClientSession, headers, cookies):
 
 
 async def async_request(urls, headers={}, cookies={}):
-    async with aiohttp.ClientSession() as session:
+    connector = ProxyConnector.from_url(PROXY['http'])
+    async with aiohttp.ClientSession(connector=connector) as session:
         result = await asyncio.gather(*[get(url, session, headers, cookies) for url in urls])
         res_code = 200
         for _, code in result:
