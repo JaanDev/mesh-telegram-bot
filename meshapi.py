@@ -10,7 +10,13 @@ from sqlalchemy import select
 from enum import Enum
 
 import database
-    
+
+# 109.95.220.45:8080
+# socks5://37.18.73.60:5566
+# 95.52.231.228:1080
+
+PROXY = {'http': "socks5://95.52.231.228:1080", 'https': "socks5://95.52.231.228:1080"}
+
 
 def get_user(tg_id) -> database.Users | None:
     with database.engine.begin() as conn:
@@ -46,12 +52,12 @@ async def profile(chat_id):
     user = get_user(chat_id)
     if user is None:
         return None
-
+    
     data = requests.get("https://school.mos.ru/api/family/mobile/v1/profile", headers={
         'auth-token': user.token,
         'profile-id': user.student_id,
         'x-mes-subsystem': 'familymp'
-    })
+    }, proxies=PROXY)
 
     if data.status_code != 200:
         return None
