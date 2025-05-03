@@ -449,6 +449,11 @@ def main():
         database.MyBase.metadata.create_all(bind=conn)
     
     fapp = fastapi.FastAPI()
+
+    @fapp.get('/')
+    def req():
+        return 'hi'
+    
     # uvicorn.run(fapp, host='0.0.0.0', port=4000)
     threading.Thread(target=run_fastapi, daemon=True).start()
 
