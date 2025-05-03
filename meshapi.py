@@ -31,7 +31,7 @@ def date_to_msk(date) -> datetime:
 
 async def get(url, session: aiohttp.ClientSession, headers, cookies):
     try:
-        async with session.get(url=url, headers=headers, cookies=cookies) as response:
+        async with session.get(url=url, headers=headers, cookies=cookies, timeout=15, proxy=PROXY['http']) as response:
             resp = await response.text()
             return resp, response.status
     except Exception as e:
@@ -102,7 +102,7 @@ async def homework(chat_id, date1: datetime, date2: datetime):
     }, cookies={
         "auth_token": user.token,
         "student_id": user.student_id
-    })
+    }, proxies=PROXY, timeout=15)
 
     if data.status_code != 200:
         return None
@@ -177,7 +177,7 @@ async def marksdate(chat_id, date1: datetime, date2: datetime):
     }, cookies={
         'auth_token': user.token,
         'student_id': user.student_id
-    })
+    }, proxies=PROXY, timeout=15)
 
     if data.status_code != 200:
         return None
@@ -209,7 +209,7 @@ async def marksdate(chat_id, date1: datetime, date2: datetime):
     }, cookies={
         'auth_token': user.token,
         'student_id': user.student_id
-    })
+    }, proxies=PROXY, timeout=15)
 
     if data2.status_code != 200:
         return None
@@ -241,7 +241,7 @@ async def marks(chat_id):
     }, cookies={
         'auth_token': user.token,
         'student_id': user.student_id
-    })
+    }, proxies=PROXY, timeout=15)
 
     if data.status_code != 200:
         return None
@@ -282,7 +282,7 @@ async def notifications(chat_id):
         'Auth-Token': user.token,
         'Profile-Id': user.student_id,
         "x-mes-subsystem": "familymp"
-    })
+    }, proxies=PROXY, timeout=15)
 
     if data.status_code != 200:
         return None
