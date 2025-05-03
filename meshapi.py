@@ -57,7 +57,7 @@ async def profile(chat_id):
         'auth-token': user.token,
         'profile-id': user.student_id,
         'x-mes-subsystem': 'familymp'
-    }, proxies=PROXY)
+    }, proxies=PROXY, timeout=15)
 
     if data.status_code != 200:
         return None
@@ -300,7 +300,7 @@ async def try_add_new_token(token, tg_id) -> bool:
         'Auth-Token': token
     }, cookies={
         'auth_token': token
-    })
+    }, proxies=PROXY, timeout=15)
 
     if req.status_code != 200:
         print('Failed to get token info!')
